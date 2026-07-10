@@ -71,6 +71,21 @@ async function tryRefresh(): Promise<boolean> {
   return true;
 }
 
+/** Upload multipart de imagem — retorna { url }. */
+export async function uploadFile(file: File): Promise<{ url: string }> {
+  const token = localStorage.getItem('accessToken');
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${API_URL}/uploads`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok) throw new ApiError(res.status, body?.message ?? 'Falha no upload');
+  return body as { url: string };
+}
+
 /**
  * fetch autenticado: injeta o Bearer token e, em 401, tenta renovar a sessão
  * uma vez antes de falhar. Lança ApiError com a mensagem da API.

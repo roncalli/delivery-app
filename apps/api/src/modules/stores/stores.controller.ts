@@ -26,6 +26,11 @@ export class StoresController {
     return this.storesService.mine(user);
   }
 
+  @Get(':id/finance')
+  finance(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    return this.storesService.finance(id, user);
+  }
+
   @Patch(':id')
   update(
     @CurrentUser() user: JwtPayload,

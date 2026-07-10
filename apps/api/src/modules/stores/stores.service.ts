@@ -4,7 +4,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { Prisma, StoreStatus, UserRole, ZoneType } from '@prisma/client';
+import { OrderStatus, Prisma, StoreStatus, UserRole, ZoneType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtPayload } from '../auth/jwt-payload.interface';
 import {
@@ -97,6 +97,41 @@ export class StoresService {
       where: { id: storeId },
       data: { status: paused ? StoreStatus.PAUSED : StoreStatus.ACTIVE },
     });
+  }
+
+  /** Resumo financeiro do lojista: vendas por período, saldo e extrato. */
+  async finance(storeId: string, user: JwtPayload) {
+    await this.getOwnedStore(storeId, user);
+
+    const wallet = await this.prisma.wallet.findUnique({
+      where: { storeId },
+      include: { transactions: { orderBy: { createdAt: 'desc' }, take: 50 } },
+    });
+
+    const now = new Date();
+    const startToday = new Date(now);
+    startToday.setHours(0, 0, 0, 0);
+    const startWeek = new Date(startToday);
+    startWeek.setDate(startWeek.getDate() - startWeek.getDay()); // domingo
+    const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const salesSince = async (gte: Date) => {
+      const r = await this.prisma.order.aggregate({
+        where: { storeId, status: OrderStatus.DELIVERED, deliveredAt: { gte } },
+        _sum: { subtotal: true },
+        _count: true,
+      });
+      return { total: Number(r._sum.subtotal ?? 0), orders: r._count };
+    };
+
+    return {
+      balance: Number(wallet?.balance ?? 0),
+      pixKey: wallet?.pixKey ?? null,
+      today: await salesSince(startToday),
+      week: await salesSince(startWeek),
+      month: await salesSince(startMonth),
+      transactions: wallet?.transactions ?? [],
+    };
   }
 
   // --- Zonas de entrega ---

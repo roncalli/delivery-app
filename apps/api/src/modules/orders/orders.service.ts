@@ -34,6 +34,7 @@ const ORDER_INCLUDE = {
   items: { include: { options: true } },
   store: { select: { id: true, name: true, slug: true, ownerId: true } },
   address: true,
+  customer: { select: { id: true, name: true, phone: true } },
 } satisfies Prisma.OrderInclude;
 
 @Injectable()

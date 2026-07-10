@@ -41,7 +41,17 @@ export class CatalogService {
     return this.prisma.menuCategory.findMany({
       where: { storeId },
       orderBy: { sortOrder: 'asc' },
-      include: { products: { orderBy: { sortOrder: 'asc' } } },
+      include: {
+        products: {
+          orderBy: { sortOrder: 'asc' },
+          include: {
+            optionGroups: {
+              orderBy: { sortOrder: 'asc' },
+              include: { options: true },
+            },
+          },
+        },
+      },
     });
   }
 
