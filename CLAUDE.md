@@ -16,7 +16,12 @@ docker compose up -d     # Postgres + Redis
 ## Arquitetura
 
 - `apps/api` — NestJS 11, monolito modular. Módulos de domínio em `src/modules/`:
-  `auth`, `users`, `stores`, `catalog`, `orders`, `logistics`, `payments`, `notifications`, `admin`.
+  `auth`, `users`, `stores`, `catalog`, `orders`, `logistics`, `payments`, `notifications`, `admin`,
+  além de `health` (health check) e `cities` (módulo-modelo do padrão controller → service → Prisma).
+- Infra transversal: `src/common/` (filtro global de exceções `{ statusCode, message, error }` e
+  interceptor de logging) e `src/redis/` (tokens `REDIS` — client ioredis compartilhado — e
+  `ORDERS_QUEUE` — fila BullMQ; o BullMQ cria as próprias conexões a partir da REDIS_URL,
+  não compartilhe o client ioredis com ele: as cópias do ioredis têm tipos incompatíveis).
 - `apps/api/prisma/schema.prisma` — fonte da verdade do modelo de dados. Toda mudança de banco passa por migration (`npm run prisma:migrate`), nunca por SQL manual.
 - `apps/web` — Next.js App Router. Route groups por frente: `(cliente)` na raiz, `/lojista`, `/entregador`, `/admin`.
 - `packages/shared` — enums e tipos compartilhados (status de pedido, papéis, formas de pagamento). Importar de `@delivery/shared`, nunca duplicar enums.
