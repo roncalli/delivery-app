@@ -1,5 +1,10 @@
 import { Module } from '@nestjs/common';
+import { UsersController } from './users.controller';
+import { UsersService } from './users.service';
 
-// Etapa 2: perfil do usuário e endereços (CRUD de addresses).
-@Module({})
+@Module({
+  controllers: [UsersController],
+  providers: [UsersService],
+  exports: [UsersService],
+})
 export class UsersModule {}

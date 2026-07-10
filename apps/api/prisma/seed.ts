@@ -1,6 +1,8 @@
 // Seed de desenvolvimento: cria admin, uma cidade, um lojista com loja ativa
 // e um cardápio de exemplo. Rodar com: npm run db:seed
+// Senhas de DEV: admin@exemplo.dev / admin123 — ze@exemplo.dev / lojista123
 import { PrismaClient } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -11,27 +13,29 @@ async function main() {
     create: { name: 'Cidade Exemplo', state: 'MG' },
   });
 
+  const adminHash = bcrypt.hashSync('admin123', 10);
   const admin = await prisma.user.upsert({
     where: { phone: '+5500000000000' },
-    update: {},
+    update: { passwordHash: adminHash },
     create: {
       role: 'ADMIN',
       name: 'Admin',
       phone: '+5500000000000',
       email: 'admin@exemplo.dev',
-      // Etapa 2: substituir por hash bcrypt real no fluxo de auth
-      passwordHash: null,
+      passwordHash: adminHash,
     },
   });
 
+  const ownerHash = bcrypt.hashSync('lojista123', 10);
   const owner = await prisma.user.upsert({
     where: { phone: '+5500000000001' },
-    update: {},
+    update: { passwordHash: ownerHash },
     create: {
       role: 'STORE_OWNER',
       name: 'Zé da Pizza',
       phone: '+5500000000001',
       email: 'ze@exemplo.dev',
+      passwordHash: ownerHash,
     },
   });
 
