@@ -1,5 +1,10 @@
 import { Module } from '@nestjs/common';
+import { StoresController } from './stores.controller';
+import { StoresService } from './stores.service';
 
-// Etapa 3: CRUD de lojas, horários de funcionamento, zonas/taxas de entrega.
-@Module({})
+@Module({
+  controllers: [StoresController],
+  providers: [StoresService],
+  exports: [StoresService],
+})
 export class StoresModule {}

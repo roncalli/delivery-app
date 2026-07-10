@@ -16,6 +16,7 @@ import { LogisticsModule } from './modules/logistics/logistics.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { UploadsModule } from './modules/uploads/uploads.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { AdminModule } from './modules/admin/admin.module';
     PaymentsModule,
     NotificationsModule,
     AdminModule,
+    UploadsModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

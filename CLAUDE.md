@@ -17,7 +17,16 @@ docker compose up -d     # Postgres + Redis
 
 - `apps/api` — NestJS 11, monolito modular. Módulos de domínio em `src/modules/`:
   `auth`, `users`, `stores`, `catalog`, `orders`, `logistics`, `payments`, `notifications`, `admin`,
-  além de `health` (health check) e `cities` (módulo-modelo do padrão controller → service → Prisma).
+  além de `health` (health check), `cities` (módulo-modelo do padrão controller → service → Prisma)
+  e `uploads` (imagens: disco local em dev servido em /uploads; R2/S3 na Etapa 9).
+- Vitrine pública (sem auth): `GET /api/catalog/stores` e `GET /api/catalog/stores/:slug`
+  no `PublicCatalogController`. Horários de funcionamento: função pura `isOpenAt` em
+  `stores/opening-hours.ts` (trata intervalo que cruza a meia-noite).
+- Toda operação de cardápio valida a POSSE da cadeia inteira (opção → grupo → produto →
+  loja → dono) via filtros de relação do Prisma — nunca confiar só no id.
+- Produtos/opções com histórico de pedidos são DESATIVADOS, nunca excluídos.
+- Cuidado com testes via curl no Git Bash: strings com acento no `-d` vão na codepage
+  local, não UTF-8 — use `--data-binary @arquivo.json` com arquivo salvo em UTF-8.
 - Infra transversal: `src/common/` (filtro global de exceções `{ statusCode, message, error }` e
   interceptor de logging) e `src/redis/` (tokens `REDIS` — client ioredis compartilhado — e
   `ORDERS_QUEUE` — fila BullMQ; o BullMQ cria as próprias conexões a partir da REDIS_URL,

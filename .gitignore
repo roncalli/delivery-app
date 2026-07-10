@@ -11,6 +11,9 @@ out/
 .env.local
 .env.*.local
 
+# Uploads locais de desenvolvimento
+apps/api/uploads/
+
 # Logs e caches
 *.log
 .turbo/

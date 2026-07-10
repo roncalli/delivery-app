@@ -37,6 +37,7 @@
     "@nestjs/schematics": "^11.0.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/express": "^5.0.0",
+    "@types/multer": "^2.2.0",
     "@types/node": "^22.10.0",
     "prisma": "^6.5.0",
     "ts-node": "^10.9.2",
