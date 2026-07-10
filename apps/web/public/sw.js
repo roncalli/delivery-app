@@ -1,7 +1,8 @@
 // Service worker do PWA.
-// Estratégia conservadora: cache só de estáticos (imagens, assets do Next).
-// NUNCA cacheia /api nem páginas — pedido/checkout precisam estar sempre frescos.
-const STATIC_CACHE = 'static-v1';
+// Estratégia conservadora: cache só de IMAGENS/FONTES (/uploads e arquivos de
+// mídia). NUNCA cacheia /api, páginas nem os chunks JS do Next (/_next/) — em
+// dev os chunks têm o mesmo nome entre builds e o cache serviria código velho.
+const STATIC_CACHE = 'static-v2';
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => {
@@ -18,11 +19,16 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
 
-  // nunca interceptar API/WebSocket
-  if (url.pathname.startsWith('/api') || url.pathname.startsWith('/ws')) return;
+  // nunca interceptar API/WebSocket nem código do app
+  if (
+    url.pathname.startsWith('/api') ||
+    url.pathname.startsWith('/ws') ||
+    url.pathname.startsWith('/_next')
+  ) {
+    return;
+  }
 
   const isStatic =
-    url.pathname.startsWith('/_next/static') ||
     url.pathname.startsWith('/uploads') ||
     /\.(png|jpg|jpeg|webp|svg|ico|woff2?)$/.test(url.pathname);
 
