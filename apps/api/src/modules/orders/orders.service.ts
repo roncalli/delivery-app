@@ -35,6 +35,7 @@ const ORDER_INCLUDE = {
   store: { select: { id: true, name: true, slug: true, ownerId: true } },
   address: true,
   customer: { select: { id: true, name: true, phone: true } },
+  review: true,
 } satisfies Prisma.OrderInclude;
 
 @Injectable()
@@ -443,6 +444,46 @@ export class OrdersService {
       customerId: order.customerId,
       status: OrderStatus.CANCELED,
     });
+  }
+
+  // ============================ AVALIAÇÕES ============================
+
+  /** Cliente avalia o pedido entregue (uma vez). Atualiza o agregado da loja. */
+  async review(
+    orderId: string,
+    user: JwtPayload,
+    dto: { storeRating: number; courierRating?: number; comment?: string },
+  ) {
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, customerId: user.sub },
+      include: { review: true, store: { select: { ratingAvg: true, ratingCount: true } } },
+    });
+    if (!order) throw new NotFoundException('Pedido não encontrado');
+    if (order.status !== OrderStatus.DELIVERED) {
+      throw new ConflictException('Só é possível avaliar pedidos entregues');
+    }
+    if (order.review) throw new ConflictException('Este pedido já foi avaliado');
+
+    const count = order.store.ratingCount;
+    const avg = order.store.ratingAvg ?? 0;
+    const newAvg = (avg * count + dto.storeRating) / (count + 1);
+
+    const [review] = await this.prisma.$transaction([
+      this.prisma.review.create({
+        data: {
+          orderId,
+          customerId: user.sub,
+          storeRating: dto.storeRating,
+          courierRating: dto.courierRating,
+          comment: dto.comment,
+        },
+      }),
+      this.prisma.store.update({
+        where: { id: order.storeId },
+        data: { ratingAvg: Math.round(newAvg * 100) / 100, ratingCount: count + 1 },
+      }),
+    ]);
+    return review;
   }
 
   // ============================ CONSULTAS ============================

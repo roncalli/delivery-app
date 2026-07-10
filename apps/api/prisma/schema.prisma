@@ -104,6 +104,9 @@ model Store {
   avgPrepMinutes Int          @default(30)
   // Horários por dia da semana: [{ day: 0-6, open: "18:00", close: "23:30" }]
   openingHours   Json         @default("[]")
+  // Agregado de avaliações — atualizado na criação de cada review
+  ratingAvg      Float?
+  ratingCount    Int          @default(0)
   lat            Float?
   lng            Float?
   createdAt      DateTime     @default(now())

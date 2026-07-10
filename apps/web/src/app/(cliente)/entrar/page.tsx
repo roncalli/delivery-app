@@ -1,12 +1,22 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
 import { api, ApiError, AuthTokens, saveSession } from '@/lib/api';
 
 /** Login do cliente: telefone → código OTP (em dev o código aparece no log da API). */
 export default function EntrarPage() {
+  return (
+    <Suspense>
+      <EntrarForm />
+    </Suspense>
+  );
+}
+
+function EntrarForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = searchParams.get('next') ?? '/';
   const [step, setStep] = useState<'phone' | 'code'>('phone');
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
@@ -46,7 +56,7 @@ export default function EntrarPage() {
         body: JSON.stringify({ phone: normalizePhone(phone), code }),
       });
       saveSession(tokens);
-      router.push('/');
+      router.push(next);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Erro de conexão');
     } finally {

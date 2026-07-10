@@ -69,3 +69,21 @@ export class CancelOrderDto {
   @MaxLength(300)
   reason?: string;
 }
+
+export class CreateReviewDto {
+  @IsInt({ message: 'Nota da loja de 1 a 5' })
+  @Min(1, { message: 'Nota mínima é 1' })
+  @Max(5, { message: 'Nota máxima é 5' })
+  storeRating: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  courierRating?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500, { message: 'Comentário muito longo' })
+  comment?: string;
+}

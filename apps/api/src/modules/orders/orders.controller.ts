@@ -3,7 +3,7 @@ import { OrderStatus, UserRole } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtPayload } from '../auth/jwt-payload.interface';
-import { CancelOrderDto, CreateOrderDto } from './dto/orders.dto';
+import { CancelOrderDto, CreateOrderDto, CreateReviewDto } from './dto/orders.dto';
 import { OrdersService } from './orders.service';
 
 @Controller('orders')
@@ -61,6 +61,17 @@ export class OrdersController {
   @Post(':id/deliver')
   deliver(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     return this.ordersService.transition(id, OrderStatus.DELIVERED, user);
+  }
+
+  /** Avaliação do pedido entregue. */
+  @Roles(UserRole.CUSTOMER)
+  @Post(':id/review')
+  review(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: CreateReviewDto,
+  ) {
+    return this.ordersService.review(id, user, dto);
   }
 
   @Post(':id/cancel')

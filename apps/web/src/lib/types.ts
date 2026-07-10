@@ -126,3 +126,46 @@ export interface Finance {
 
 export const money = (v: string | number) =>
   Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+// --- Vitrine pública (respostas de /catalog) ---
+
+export interface PublicStoreListItem {
+  id: string;
+  slug: string;
+  name: string;
+  category: string;
+  description: string | null;
+  logoUrl: string | null;
+  coverUrl: string | null;
+  minOrderValue: string;
+  avgPrepMinutes: number;
+  ratingAvg: number | null;
+  ratingCount: number;
+  isOpenNow: boolean;
+  minDeliveryFee: number | null;
+}
+
+export interface PublicStoreDetail extends Omit<PublicStoreListItem, 'minDeliveryFee'> {
+  status: string;
+  menuCategories: MenuCategory[];
+  deliveryZones: DeliveryZone[];
+}
+
+export interface City {
+  id: string;
+  name: string;
+  state: string;
+}
+
+export interface AddressItem {
+  id: string;
+  label: string | null;
+  street: string;
+  number: string;
+  complement: string | null;
+  neighborhood: string;
+  cityId: string;
+  lat: number | null;
+  lng: number | null;
+  isDefault: boolean;
+}

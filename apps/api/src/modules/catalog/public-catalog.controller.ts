@@ -34,6 +34,8 @@ export class PublicCatalogController {
         minOrderValue: true,
         avgPrepMinutes: true,
         deliveryMode: true,
+        ratingAvg: true,
+        ratingCount: true,
         openingHours: true,
         deliveryZones: { select: { fee: true } },
       },
