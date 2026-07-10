@@ -4,15 +4,26 @@ import {
   Get,
   NotFoundException,
   Param,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
-import { StoreStatus, UserRole } from '@prisma/client';
-import { IsOptional, IsString } from 'class-validator';
+import { OrderStatus, StoreStatus, UserRole } from '@prisma/client';
+import {
+  IsBoolean,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Length,
+  Max,
+  Min,
+  MinLength,
+} from 'class-validator';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtPayload } from '../auth/jwt-payload.interface';
+import { AdminService } from './admin.service';
 
 class SuspendStoreDto {
   @IsOptional()
@@ -20,10 +31,41 @@ class SuspendStoreDto {
   reason?: string;
 }
 
+class UpdateCommissionDto {
+  @IsNumber({}, { message: 'Comissão inválida' })
+  @Min(0)
+  @Max(50)
+  commissionPct: number;
+}
+
+class CreatePayoutDto {
+  @IsOptional()
+  @IsString()
+  pixKey?: string;
+}
+
+class CreateCityDto {
+  @IsString()
+  @MinLength(2, { message: 'Informe o nome da cidade' })
+  name: string;
+
+  @IsString()
+  @Length(2, 2, { message: 'UF com 2 letras' })
+  state: string;
+}
+
+class SetCityActiveDto {
+  @IsBoolean()
+  active: boolean;
+}
+
 @Roles(UserRole.ADMIN)
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly adminService: AdminService,
+  ) {}
 
   /** Rota de sanidade da autorização: só ADMIN passa. */
   @Get('ping')
@@ -31,7 +73,18 @@ export class AdminController {
     return { pong: true, userId: user.sub };
   }
 
-  /** Lista lojas por status — a fila de aprovação usa ?status=PENDING. */
+  @Get('dashboard')
+  dashboard() {
+    return this.adminService.dashboard();
+  }
+
+  @Get('orders')
+  listOrders(@Query('status') status?: OrderStatus) {
+    return this.adminService.listOrders(status);
+  }
+
+  // --- Lojas ---
+
   @Get('stores')
   listStores(@Query('status') status?: StoreStatus) {
     return this.prisma.store.findMany({
@@ -57,6 +110,40 @@ export class AdminController {
       where: { id },
       data: { status: StoreStatus.SUSPENDED },
     });
+  }
+
+  @Patch('stores/:id/commission')
+  updateCommission(@Param('id') id: string, @Body() dto: UpdateCommissionDto) {
+    return this.adminService.updateCommission(id, dto.commissionPct);
+  }
+
+  // --- Financeiro ---
+
+  @Get('finance')
+  finance() {
+    return this.adminService.finance();
+  }
+
+  @Post('wallets/:id/payout')
+  createPayout(@Param('id') id: string, @Body() dto: CreatePayoutDto) {
+    return this.adminService.createPayout(id, dto.pixKey);
+  }
+
+  // --- Cidades ---
+
+  @Get('cities')
+  listCities() {
+    return this.adminService.listCities();
+  }
+
+  @Post('cities')
+  createCity(@Body() dto: CreateCityDto) {
+    return this.adminService.createCity(dto.name, dto.state);
+  }
+
+  @Patch('cities/:id/active')
+  setCityActive(@Param('id') id: string, @Body() dto: SetCityActiveDto) {
+    return this.adminService.setCityActive(id, dto.active);
   }
 
   private async assertStore(id: string) {

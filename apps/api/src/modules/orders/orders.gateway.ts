@@ -76,7 +76,8 @@ export class OrdersGateway implements OnGatewayConnection {
   // --- Emissões (chamadas pelo OrdersService APÓS o commit) ---
 
   emitOrderCreated(storeId: string, order: unknown) {
-    this.server.to(`store:${storeId}`).emit(WS_EVENTS.ORDER_CREATED, order);
+    // admin acompanha tudo no monitor
+    this.server.to(`store:${storeId}`).to('admin').emit(WS_EVENTS.ORDER_CREATED, order);
   }
 
   emitStatusChanged(params: {
@@ -93,6 +94,7 @@ export class OrdersGateway implements OnGatewayConnection {
     this.server
       .to(`store:${params.storeId}`)
       .to(`customer:${params.customerId}`)
+      .to('admin')
       .emit(WS_EVENTS.ORDER_STATUS_CHANGED, payload);
   }
 
