@@ -31,10 +31,14 @@ export enum OrderStatus {
   CANCELED = 'CANCELED',
 }
 
-/** Transições válidas da máquina de estados de pedido. */
+/**
+ * Transições válidas da máquina de estados de pedido.
+ * ACCEPTED já significa "em preparo" para a UI; PREPARING é um refinamento
+ * opcional — por isso ACCEPTED→READY também é permitido.
+ */
 export const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.CREATED]: [OrderStatus.ACCEPTED, OrderStatus.CANCELED],
-  [OrderStatus.ACCEPTED]: [OrderStatus.PREPARING, OrderStatus.CANCELED],
+  [OrderStatus.ACCEPTED]: [OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.CANCELED],
   [OrderStatus.PREPARING]: [OrderStatus.READY, OrderStatus.CANCELED],
   [OrderStatus.READY]: [OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED, OrderStatus.CANCELED],
   [OrderStatus.OUT_FOR_DELIVERY]: [OrderStatus.DELIVERED, OrderStatus.CANCELED],
@@ -116,6 +120,8 @@ export const WS_EVENTS = {
   DELIVERY_OFFER: 'delivery:offer',
   /** Posição do entregador para o cliente acompanhar (Fase 2). */
   COURIER_LOCATION: 'courier:location',
+  /** Emitido para a sala do admin quando um pedido fica preso sem aceite. */
+  ORDER_STUCK: 'order:stuck',
 } as const;
 
 export interface OrderStatusChangedPayload {

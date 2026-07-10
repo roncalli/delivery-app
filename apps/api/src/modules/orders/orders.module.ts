@@ -1,6 +1,12 @@
 import { Module } from '@nestjs/common';
+import { OrdersController } from './orders.controller';
+import { OrdersGateway } from './orders.gateway';
+import { OrdersService } from './orders.service';
+import { OrdersWorker } from './orders.worker';
 
-// Etapa 4: checkout, máquina de estados do pedido (usar ORDER_TRANSITIONS de
-// @delivery/shared), gateway WebSocket e jobs de timeout (BullMQ).
-@Module({})
+@Module({
+  controllers: [OrdersController],
+  providers: [OrdersService, OrdersGateway, OrdersWorker],
+  exports: [OrdersService],
+})
 export class OrdersModule {}
