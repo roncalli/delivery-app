@@ -1,0 +1,22 @@
+{
+  "name": "delivery-app",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Plataforma de delivery para pequenas e médias cidades (web-first)",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run start:dev -w @delivery/api",
+    "dev:web": "npm run dev -w @delivery/web",
+    "build": "npm run build -w @delivery/shared && npm run build -w @delivery/api && npm run build -w @delivery/web",
+    "prisma:migrate": "npm run prisma:migrate -w @delivery/api",
+    "prisma:studio": "npm run prisma:studio -w @delivery/api",
+    "prisma:generate": "npm run prisma:generate -w @delivery/api",
+    "db:seed": "npm run db:seed -w @delivery/api"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
