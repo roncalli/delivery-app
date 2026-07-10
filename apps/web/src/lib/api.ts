@@ -25,26 +25,47 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * As 4 frentes compartilham o mesmo domínio, mas cada uma tem sessão PRÓPRIA
+ * (chaves prefixadas pela área). Assim o dono de loja pode testar o app do
+ * cliente no mesmo navegador sem uma sessão atropelar a outra.
+ */
+function sessionScope(): string {
+  if (typeof window === 'undefined') return 'cliente';
+  const path = window.location.pathname;
+  if (path.startsWith('/lojista')) return 'lojista';
+  if (path.startsWith('/admin')) return 'admin';
+  if (path.startsWith('/entregador')) return 'entregador';
+  return 'cliente';
+}
+
+const storageKey = (name: string) => `${sessionScope()}:${name}`;
+
+export function getAccessToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(storageKey('accessToken'));
+}
+
 export function saveSession(tokens: AuthTokens) {
-  localStorage.setItem('accessToken', tokens.accessToken);
-  localStorage.setItem('refreshToken', tokens.refreshToken);
-  localStorage.setItem('user', JSON.stringify(tokens.user));
+  localStorage.setItem(storageKey('accessToken'), tokens.accessToken);
+  localStorage.setItem(storageKey('refreshToken'), tokens.refreshToken);
+  localStorage.setItem(storageKey('user'), JSON.stringify(tokens.user));
 }
 
 export function clearSession() {
-  localStorage.removeItem('accessToken');
-  localStorage.removeItem('refreshToken');
-  localStorage.removeItem('user');
+  localStorage.removeItem(storageKey('accessToken'));
+  localStorage.removeItem(storageKey('refreshToken'));
+  localStorage.removeItem(storageKey('user'));
 }
 
 export function getUser(): AuthUser | null {
   if (typeof window === 'undefined') return null;
-  const raw = localStorage.getItem('user');
+  const raw = localStorage.getItem(storageKey('user'));
   return raw ? (JSON.parse(raw) as AuthUser) : null;
 }
 
 async function rawFetch(path: string, options: RequestInit = {}) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  const token = getAccessToken();
   return fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
@@ -56,7 +77,7 @@ async function rawFetch(path: string, options: RequestInit = {}) {
 }
 
 async function tryRefresh(): Promise<boolean> {
-  const refreshToken = localStorage.getItem('refreshToken');
+  const refreshToken = localStorage.getItem(storageKey('refreshToken'));
   if (!refreshToken) return false;
   const res = await fetch(`${API_URL}/auth/refresh`, {
     method: 'POST',
@@ -73,7 +94,7 @@ async function tryRefresh(): Promise<boolean> {
 
 /** Upload multipart de imagem — retorna { url }. */
 export async function uploadFile(file: File): Promise<{ url: string }> {
-  const token = localStorage.getItem('accessToken');
+  const token = getAccessToken();
   const form = new FormData();
   form.append('file', file);
   const res = await fetch(`${API_URL}/uploads`, {
