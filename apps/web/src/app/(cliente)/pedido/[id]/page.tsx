@@ -45,6 +45,9 @@ export default function PedidoPage() {
         void api<OrderWithReview>(`/orders/${id}`).then(setOrder);
       }
     });
+    socket.on('order:payment_confirmed', (p: { orderId: string }) => {
+      if (p.orderId === id) void api<OrderWithReview>(`/orders/${id}`).then(setOrder);
+    });
     socket.on('connect', () => void api<OrderWithReview>(`/orders/${id}`).then(setOrder));
     return () => {
       socket.close();
@@ -60,6 +63,22 @@ export default function PedidoPage() {
       <Link href="/pedidos" className="text-sm text-neutral-500">← meus pedidos</Link>
       <h1 className="mb-1 mt-2 text-lg font-bold">Pedido #{order.number}</h1>
       <p className="mb-4 text-sm text-neutral-500">{order.store.name}</p>
+
+      {order.paymentMethod === 'PIX' &&
+        order.paymentStatus === 'PENDING' &&
+        order.status === 'CREATED' && (
+          <PixBox order={order} onPaid={() => void api<OrderWithReview>(`/orders/${id}`).then(setOrder)} />
+        )}
+      {order.paymentMethod === 'PIX' && order.paymentStatus === 'PAID' && (
+        <p className="mb-3 rounded-2xl bg-green-50 px-4 py-2 text-center text-sm font-semibold text-green-700">
+          ⚡ Pagamento Pix confirmado
+        </p>
+      )}
+      {order.paymentStatus === 'REFUNDED' && (
+        <p className="mb-3 rounded-2xl bg-blue-50 px-4 py-2 text-center text-sm font-semibold text-blue-700">
+          Valor estornado — o Pix volta para sua conta
+        </p>
+      )}
 
       {order.status === 'CANCELED' ? (
         <div className="rounded-2xl bg-red-50 p-4 text-center">
@@ -123,6 +142,72 @@ export default function PedidoPage() {
         </p>
       )}
     </main>
+  );
+}
+
+/** Pagamento Pix pendente: copia-e-cola, countdown e (no mock) simulação. */
+function PixBox({ order, onPaid }: { order: OrderWithReview; onPaid: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const [left, setLeft] = useState('');
+  const isMock = order.pixCopiaECola?.includes('MOCK') ?? false;
+
+  useEffect(() => {
+    const tick = () => {
+      if (!order.pixExpiresAt) return;
+      const ms = new Date(order.pixExpiresAt).getTime() - Date.now();
+      if (ms <= 0) {
+        setLeft('expirado');
+        return;
+      }
+      const m = Math.floor(ms / 60000);
+      const s = Math.floor((ms % 60000) / 1000);
+      setLeft(`${m}:${String(s).padStart(2, '0')}`);
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [order.pixExpiresAt]);
+
+  async function copiar() {
+    if (!order.pixCopiaECola) return;
+    await navigator.clipboard.writeText(order.pixCopiaECola);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function simular() {
+    try {
+      await api(`/payments/dev/simulate/${order.id}`, { method: 'POST' });
+      onPaid();
+    } catch (e) {
+      alert(e instanceof ApiError ? e.message : 'Erro ao simular');
+    }
+  }
+
+  return (
+    <section className="mb-4 rounded-2xl border-2 border-emerald-500 bg-emerald-50 p-4 text-center">
+      <p className="font-bold text-emerald-800">⚡ Pague com Pix para confirmar o pedido</p>
+      <p className="mt-1 text-sm text-emerald-700">
+        Expira em <strong>{left}</strong> — após pagar, a confirmação é automática.
+      </p>
+      <div className="mt-3 max-h-20 overflow-hidden break-all rounded-lg bg-white px-3 py-2 text-left text-[10px] text-neutral-500">
+        {order.pixCopiaECola}
+      </div>
+      <button
+        onClick={copiar}
+        className="mt-2 w-full rounded-xl bg-emerald-600 py-2.5 font-bold text-white"
+      >
+        {copied ? 'Copiado! ✓' : 'Copiar código Pix'}
+      </button>
+      {isMock && (
+        <button
+          onClick={simular}
+          className="mt-2 w-full rounded-xl border border-dashed border-emerald-600 py-2 text-sm font-semibold text-emerald-700"
+        >
+          🧪 Simular pagamento (ambiente de testes)
+        </button>
+      )}
+    </section>
   );
 }
 

@@ -253,6 +253,9 @@ model Order {
   canceledBy    UserRole?
   // ID da cobrança no gateway de pagamento (Pix/cartão)
   gatewayChargeId String?
+  // Pix: código copia-e-cola e prazo para pagamento (exibidos ao cliente)
+  pixCopiaECola   String?
+  pixExpiresAt    DateTime?
 
   createdAt       DateTime  @default(now())
   acceptedAt      DateTime?

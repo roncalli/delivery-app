@@ -24,6 +24,8 @@ export class OrdersWorker implements OnModuleInit, OnApplicationShutdown {
             return this.ordersService.handleAcceptWarn(job.data.orderId);
           case 'accept-cancel':
             return this.ordersService.handleAcceptCancel(job.data.orderId);
+          case 'pix-expire':
+            return this.ordersService.handlePixExpire(job.data.orderId);
           default:
             this.logger.warn(`Job desconhecido na fila orders: ${job.name}`);
         }

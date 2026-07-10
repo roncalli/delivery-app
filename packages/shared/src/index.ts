@@ -122,6 +122,8 @@ export const WS_EVENTS = {
   COURIER_LOCATION: 'courier:location',
   /** Emitido para a sala do admin quando um pedido fica preso sem aceite. */
   ORDER_STUCK: 'order:stuck',
+  /** Emitido para o cliente quando o pagamento online é confirmado. */
+  PAYMENT_CONFIRMED: 'order:payment_confirmed',
 } as const;
 
 export interface OrderStatusChangedPayload {

@@ -90,8 +90,10 @@ export interface Order {
   number: number;
   status: OrderStatus;
   paymentMethod: 'PIX' | 'CARD_ONLINE' | 'ON_DELIVERY';
-  paymentStatus: string;
+  paymentStatus: 'PENDING' | 'AUTHORIZED' | 'PAID' | 'REFUNDED' | 'FAILED';
   changeFor: string | null;
+  pixCopiaECola: string | null;
+  pixExpiresAt: string | null;
   subtotal: string;
   deliveryFee: string;
   total: string;

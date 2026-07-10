@@ -96,6 +96,12 @@ export class OrdersGateway implements OnGatewayConnection {
       .emit(WS_EVENTS.ORDER_STATUS_CHANGED, payload);
   }
 
+  emitPaymentConfirmed(customerId: string, orderId: string) {
+    this.server
+      .to(`customer:${customerId}`)
+      .emit(WS_EVENTS.PAYMENT_CONFIRMED, { orderId });
+  }
+
   emitOrderStuck(order: { id: string; number: number; storeId: string }) {
     this.server.to('admin').emit(WS_EVENTS.ORDER_STUCK, order);
     this.logger.warn(`Pedido #${order.number} sem aceite do lojista (${order.storeId})`);

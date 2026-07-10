@@ -1,7 +1,13 @@
 import { Module } from '@nestjs/common';
+import { OrdersModule } from '../orders/orders.module';
+import { PaymentsController } from './payments.controller';
+import { PaymentsService } from './payments.service';
 
-// Etapa 7: integração com gateway (Asaas/Pagar.me) — cobrança Pix, webhook de
-// confirmação, split, estorno. Carteiras e transações dos lojistas/entregadores.
+// O provider PAYMENT_GATEWAY vem do GatewayModule (global) — ver gateway.module.ts.
 // Módulo sensível: mudanças aqui sempre com revisão do Claude/humana.
-@Module({})
+@Module({
+  imports: [OrdersModule],
+  controllers: [PaymentsController],
+  providers: [PaymentsService],
+})
 export class PaymentsModule {}

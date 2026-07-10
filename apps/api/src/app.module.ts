@@ -5,6 +5,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
+import { GatewayModule } from './modules/payments/gateway.module';
 import { HealthModule } from './modules/health/health.module';
 import { CitiesModule } from './modules/cities/cities.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -23,6 +24,7 @@ import { UploadsModule } from './modules/uploads/uploads.module';
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ['../../.env', '.env'] }),
     PrismaModule,
     RedisModule,
+    GatewayModule,
     HealthModule,
     CitiesModule,
     AuthModule,

@@ -18,9 +18,14 @@ import {
 } from '@prisma/client';
 import { ORDER_TRANSITIONS } from '@delivery/shared';
 import { Queue } from 'bullmq';
+import { Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ORDERS_QUEUE } from '../../redis/redis.module';
 import { JwtPayload } from '../auth/jwt-payload.interface';
+import {
+  PAYMENT_GATEWAY,
+  PaymentGateway,
+} from '../payments/payment-gateway.interface';
 import { isOpenAt, OpeningInterval } from '../stores/opening-hours';
 import { haversineKm } from './distance';
 import { CreateOrderDto } from './dto/orders.dto';
@@ -40,18 +45,21 @@ const ORDER_INCLUDE = {
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly gateway: OrdersGateway,
     @Inject(ORDERS_QUEUE) private readonly queue: Queue,
+    @Inject(PAYMENT_GATEWAY) private readonly paymentGateway: PaymentGateway,
   ) {}
 
   // ============================ CHECKOUT ============================
 
   async create(user: JwtPayload, dto: CreateOrderDto) {
-    if (dto.paymentMethod !== PaymentMethod.ON_DELIVERY) {
+    if (dto.paymentMethod === PaymentMethod.CARD_ONLINE) {
       throw new UnprocessableEntityException(
-        'Pagamento online estará disponível em breve — use pagamento na entrega',
+        'Cartão online estará disponível em breve — use Pix ou pagamento na entrega',
       );
     }
 
@@ -123,11 +131,113 @@ export class OrdersService {
       include: ORDER_INCLUDE,
     });
 
-    // Pós-commit: tempo real + jobs de timeout de aceite
+    if (dto.paymentMethod === PaymentMethod.PIX) {
+      // Pix: cobra primeiro; o lojista SÓ vê o pedido após a confirmação
+      // (webhook → markPixPaid). Se não pagar no prazo, o job pix-expire cancela.
+      const expiresInSeconds = Math.floor(
+        Number(process.env.PIX_EXPIRE_MS ?? 15 * 60_000) / 1000,
+      );
+      const charge = await this.paymentGateway.createPixCharge({
+        orderId: order.id,
+        orderNumber: order.number,
+        amountCents: totalCents,
+        customerName: order.customer.name,
+        customerPhone: order.customer.phone,
+        expiresInSeconds,
+      });
+      const withPix = await this.prisma.order.update({
+        where: { id: order.id },
+        data: {
+          gatewayChargeId: charge.chargeId,
+          pixCopiaECola: charge.copiaECola,
+          pixExpiresAt: charge.expiresAt,
+        },
+        include: ORDER_INCLUDE,
+      });
+      await this.queue.add(
+        'pix-expire',
+        { orderId: order.id },
+        { delay: expiresInSeconds * 1000, jobId: `pix-${order.id}` },
+      );
+      return withPix;
+    }
+
+    // Pagamento na entrega: pedido vai direto para o lojista
     this.gateway.emitOrderCreated(store.id, order);
     await this.scheduleAcceptTimeouts(order.id);
 
     return order;
+  }
+
+  // ============================ PIX ============================
+
+  /**
+   * Confirmação de pagamento (webhook). IDEMPOTENTE: o update só acontece se
+   * o pagamento ainda está PENDING — evento duplicado não tem efeito.
+   */
+  async markPixPaid(chargeId: string): Promise<boolean> {
+    const updated = await this.prisma.order.updateMany({
+      where: {
+        gatewayChargeId: chargeId,
+        paymentMethod: PaymentMethod.PIX,
+        paymentStatus: PaymentStatus.PENDING,
+        status: OrderStatus.CREATED,
+      },
+      data: { paymentStatus: PaymentStatus.PAID },
+    });
+    if (updated.count === 0) return false; // já processado ou pedido cancelado
+
+    const order = await this.prisma.order.findFirstOrThrow({
+      where: { gatewayChargeId: chargeId },
+      include: ORDER_INCLUDE,
+    });
+
+    // Agora sim o pedido "nasce" para o lojista
+    this.gateway.emitOrderCreated(order.storeId, order);
+    this.gateway.emitPaymentConfirmed(order.customerId, order.id);
+    await this.scheduleAcceptTimeouts(order.id);
+    const pixJob = await this.queue.getJob(`pix-${order.id}`);
+    if (pixJob) await pixJob.remove().catch(() => undefined);
+
+    return true;
+  }
+
+  /** Eco de estorno vindo do gateway (idempotente). */
+  async markPixRefunded(chargeId: string): Promise<void> {
+    await this.prisma.order.updateMany({
+      where: { gatewayChargeId: chargeId, paymentStatus: PaymentStatus.PAID },
+      data: { paymentStatus: PaymentStatus.REFUNDED },
+    });
+  }
+
+  /** Chamado pelo worker: Pix não pago no prazo → cancela o pedido. */
+  async handlePixExpire(orderId: string) {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    if (
+      !order ||
+      order.paymentMethod !== PaymentMethod.PIX ||
+      order.paymentStatus !== PaymentStatus.PENDING ||
+      order.status !== OrderStatus.CREATED
+    ) {
+      return;
+    }
+    await this.prisma.order.update({
+      where: { id: orderId, status: OrderStatus.CREATED },
+      data: {
+        status: OrderStatus.CANCELED,
+        canceledAt: new Date(),
+        canceledBy: UserRole.ADMIN,
+        cancelReason: 'Pagamento não confirmado a tempo',
+        paymentStatus: PaymentStatus.FAILED,
+      },
+    });
+    // só o cliente precisa saber — o lojista nunca viu este pedido
+    this.gateway.emitStatusChanged({
+      orderId: order.id,
+      storeId: order.storeId,
+      customerId: order.customerId,
+      status: OrderStatus.CANCELED,
+    });
   }
 
   /** Taxa de entrega: bairro exato ou raio (haversine). Mais barata vence. */
@@ -271,6 +381,14 @@ export class OrdersService {
         `Não é possível mudar o pedido de ${order.status} para ${to}`,
       );
     }
+    // Pedido Pix ainda não pago não pode ser aceito
+    if (
+      to === OrderStatus.ACCEPTED &&
+      order.paymentMethod === PaymentMethod.PIX &&
+      order.paymentStatus !== PaymentStatus.PAID
+    ) {
+      throw new ConflictException('Aguardando a confirmação do pagamento');
+    }
     this.assertActor(order, to, actor);
 
     const timestamps: Prisma.OrderUpdateInput = {
@@ -317,6 +435,33 @@ export class OrdersService {
     });
     if (to === OrderStatus.ACCEPTED || to === OrderStatus.CANCELED) {
       await this.clearAcceptTimeouts(orderId);
+    }
+
+    // Cancelou um Pix PAGO → estorno automático
+    if (
+      to === OrderStatus.CANCELED &&
+      order.paymentMethod === PaymentMethod.PIX &&
+      order.paymentStatus === PaymentStatus.PAID &&
+      order.gatewayChargeId
+    ) {
+      try {
+        await this.paymentGateway.refund(order.gatewayChargeId);
+        await this.prisma.order.update({
+          where: { id: orderId },
+          data: { paymentStatus: PaymentStatus.REFUNDED },
+        });
+      } catch (err) {
+        // TODO: fila de retry de estornos + alerta no admin
+        this.logger.error(
+          `Estorno do pedido ${orderId} falhou — intervenção manual necessária`,
+          err instanceof Error ? err.stack : String(err),
+        );
+      }
+    }
+    // Cancelou um Pix ainda não pago → remove o job de expiração
+    if (to === OrderStatus.CANCELED && order.paymentMethod === PaymentMethod.PIX) {
+      const pixJob = await this.queue.getJob(`pix-${orderId}`);
+      if (pixJob) await pixJob.remove().catch(() => undefined);
     }
 
     return updated;
@@ -507,7 +652,15 @@ export class OrdersService {
     if (!store) throw new NotFoundException('Loja não encontrada');
 
     return this.prisma.order.findMany({
-      where: { storeId, ...(status ? { status } : {}) },
+      where: {
+        storeId,
+        ...(status ? { status } : {}),
+        // Pix ainda não pago não existe para o lojista
+        NOT: {
+          paymentMethod: PaymentMethod.PIX,
+          paymentStatus: { in: [PaymentStatus.PENDING, PaymentStatus.FAILED] },
+        },
+      },
       include: ORDER_INCLUDE,
       orderBy: { createdAt: 'desc' },
       take: 100,

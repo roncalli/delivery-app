@@ -42,7 +42,12 @@ export default function PedidosPage() {
       )}
       <div className="space-y-3">
         {orders.map((order) => {
-          const badge = STATUS_LABEL[order.status];
+          const badge =
+            order.paymentMethod === 'PIX' &&
+            order.paymentStatus === 'PENDING' &&
+            order.status === 'CREATED'
+              ? { text: 'Aguardando pagamento', style: 'bg-emerald-100 text-emerald-700' }
+              : STATUS_LABEL[order.status];
           return (
             <Link
               key={order.id}

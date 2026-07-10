@@ -6,7 +6,7 @@ import { api, ApiError, getUser } from '@/lib/api';
 import { cartSubtotal, useCart } from '@/lib/cart';
 import { AddressItem, City, money, PublicStoreDetail } from '@/lib/types';
 
-type Pagamento = 'dinheiro' | 'maquininha';
+type Pagamento = 'pix' | 'dinheiro' | 'maquininha';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -69,7 +69,7 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           storeId,
           addressId,
-          paymentMethod: 'ON_DELIVERY',
+          paymentMethod: pagamento === 'pix' ? 'PIX' : 'ON_DELIVERY',
           changeFor:
             pagamento === 'dinheiro' && troco ? Number(troco.replace(',', '.')) : undefined,
           items: items.map((i) => ({
@@ -137,7 +137,16 @@ export default function CheckoutPage() {
       </section>
 
       <section className="mb-4 rounded-2xl bg-white p-4 shadow-sm">
-        <h2 className="mb-2 font-bold">Pagamento na entrega</h2>
+        <h2 className="mb-2 font-bold">Pagamento</h2>
+        <label className="flex items-center gap-3 py-1.5 text-sm">
+          <input
+            type="radio"
+            checked={pagamento === 'pix'}
+            onChange={() => setPagamento('pix')}
+            className="h-4 w-4 accent-rose-600"
+          />
+          ⚡ Pix — pague agora e o pedido já entra na fila
+        </label>
         <label className="flex items-center gap-3 py-1.5 text-sm">
           <input
             type="radio"
@@ -145,7 +154,7 @@ export default function CheckoutPage() {
             onChange={() => setPagamento('dinheiro')}
             className="h-4 w-4 accent-rose-600"
           />
-          💵 Dinheiro
+          💵 Dinheiro na entrega
         </label>
         {pagamento === 'dinheiro' && (
           <input
@@ -163,11 +172,7 @@ export default function CheckoutPage() {
             onChange={() => setPagamento('maquininha')}
             className="h-4 w-4 accent-rose-600"
           />
-          💳 Cartão na maquininha
-        </label>
-        <label className="flex items-center gap-3 py-1.5 text-sm text-neutral-400">
-          <input type="radio" disabled className="h-4 w-4" />
-          ⚡ Pix online — em breve
+          💳 Cartão na maquininha (na entrega)
         </label>
       </section>
 
