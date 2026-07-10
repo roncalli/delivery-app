@@ -1,0 +1,177 @@
+# Requisições de validação da API — use com a extensão "REST Client" do VS Code
+# (instale "REST Client" de Huachao Mao e clique em "Send Request" acima de cada bloco).
+# A API precisa estar rodando: npm run dev:api
+
+@api = http://localhost:3001/api
+
+### ============ SAÚDE E PÚBLICO (sem login) ============
+
+### Health check
+GET {{api}}/health
+
+### Cidades ativas
+GET {{api}}/cities
+
+### Vitrine: lojas ativas (com isOpenNow e menor taxa)
+GET {{api}}/catalog/stores
+
+### Vitrine: buscar por nome
+GET {{api}}/catalog/stores?search=burguer
+
+### Vitrine: cardápio completo de uma loja
+GET {{api}}/catalog/stores/burguer-do-joao
+
+### ============ LOGIN ============
+
+### Login do LOJISTA (guarda o token para os blocos seguintes)
+# @name loginLojista
+POST {{api}}/auth/login
+Content-Type: application/json
+
+{ "email": "ze@exemplo.dev", "password": "lojista123" }
+
+### Login do ADMIN
+# @name loginAdmin
+POST {{api}}/auth/login
+Content-Type: application/json
+
+{ "email": "admin@exemplo.dev", "password": "admin123" }
+
+@lojista = {{loginLojista.response.body.accessToken}}
+@admin = {{loginAdmin.response.body.accessToken}}
+
+### Login do CLIENTE — passo 1: pedir código (aparece no terminal da API)
+POST {{api}}/auth/otp/request
+Content-Type: application/json
+
+{ "phone": "+5534999990000" }
+
+### Login do CLIENTE — passo 2: trocar código por tokens (cole o código do log)
+POST {{api}}/auth/otp/verify
+Content-Type: application/json
+
+{ "phone": "+5534999990000", "code": "000000" }
+
+### ============ LOJISTA: MINHA LOJA ============
+
+### Minhas lojas
+GET {{api}}/stores/mine
+Authorization: Bearer {{lojista}}
+
+### Criar loja nova (nasce PENDING — precisa de aprovação do admin)
+# @name novaLoja
+POST {{api}}/stores
+Authorization: Bearer {{lojista}}
+Content-Type: application/json
+
+{
+  "name": "Pastelaria da Praça",
+  "category": "Pastel",
+  "document": "11122233344",
+  "cityId": "COLE_O_ID_DA_CIDADE_AQUI"
+}
+
+### Atualizar horários (0=domingo ... 6=sábado; close menor que open cruza a meia-noite)
+PATCH {{api}}/stores/{{novaLoja.response.body.id}}
+Authorization: Bearer {{lojista}}
+Content-Type: application/json
+
+{
+  "openingHours": [
+    { "day": 5, "open": "18:00", "close": "01:00" },
+    { "day": 6, "open": "18:00", "close": "01:00" }
+  ],
+  "avgPrepMinutes": 25
+}
+
+### Criar zona de entrega por bairro
+POST {{api}}/stores/{{novaLoja.response.body.id}}/delivery-zones
+Authorization: Bearer {{lojista}}
+Content-Type: application/json
+
+{ "type": "NEIGHBORHOOD", "neighborhood": "Centro", "fee": 5.00, "etaMinutes": 30 }
+
+### Pausar a loja ("fechar temporariamente")
+POST {{api}}/stores/{{novaLoja.response.body.id}}/pause
+Authorization: Bearer {{lojista}}
+
+### Retomar
+POST {{api}}/stores/{{novaLoja.response.body.id}}/resume
+Authorization: Bearer {{lojista}}
+
+### ============ LOJISTA: CARDÁPIO ============
+
+### Listar categorias (com produtos)
+GET {{api}}/stores/{{novaLoja.response.body.id}}/menu-categories
+Authorization: Bearer {{lojista}}
+
+### Criar categoria
+# @name novaCategoria
+POST {{api}}/stores/{{novaLoja.response.body.id}}/menu-categories
+Authorization: Bearer {{lojista}}
+Content-Type: application/json
+
+{ "name": "Pastéis Salgados" }
+
+### Criar produto
+# @name novoProduto
+POST {{api}}/stores/{{novaLoja.response.body.id}}/products
+Authorization: Bearer {{lojista}}
+Content-Type: application/json
+
+{
+  "categoryId": "{{novaCategoria.response.body.id}}",
+  "name": "Pastel de Carne",
+  "description": "Carne moída temperada",
+  "price": 12.50
+}
+
+### Criar grupo de opções no produto
+# @name novoGrupo
+POST {{api}}/products/{{novoProduto.response.body.id}}/option-groups
+Authorization: Bearer {{lojista}}
+Content-Type: application/json
+
+{ "name": "Adicionais", "minSelect": 0, "maxSelect": 3 }
+
+### Criar opção no grupo
+POST {{api}}/option-groups/{{novoGrupo.response.body.id}}/options
+Authorization: Bearer {{lojista}}
+Content-Type: application/json
+
+{ "name": "Queijo extra", "extraPrice": 3.00 }
+
+### Esgotar produto (some da compra, continua visível como indisponível)
+PATCH {{api}}/products/{{novoProduto.response.body.id}}/availability
+Authorization: Bearer {{lojista}}
+Content-Type: application/json
+
+{ "available": false }
+
+### ============ ADMIN ============
+
+### Fila de aprovação (lojas pendentes)
+GET {{api}}/admin/stores?status=PENDING
+Authorization: Bearer {{admin}}
+
+### Aprovar loja (use o id retornado na fila acima ou da criação)
+POST {{api}}/admin/stores/{{novaLoja.response.body.id}}/approve
+Authorization: Bearer {{admin}}
+
+### Suspender loja
+POST {{api}}/admin/stores/{{novaLoja.response.body.id}}/suspend
+Authorization: Bearer {{admin}}
+
+### Sanidade de autorização (lojista aqui recebe 403)
+GET {{api}}/admin/ping
+Authorization: Bearer {{admin}}
+
+### ============ CLIENTE ============
+
+### Meu perfil (use o accessToken do otp/verify)
+GET {{api}}/users/me
+Authorization: Bearer COLE_O_TOKEN_DO_CLIENTE
+
+### Meus endereços
+GET {{api}}/users/me/addresses
+Authorization: Bearer COLE_O_TOKEN_DO_CLIENTE
