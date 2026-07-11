@@ -10,6 +10,7 @@ interface AdminStore {
   slug: string;
   category: string;
   document: string;
+  description: string | null;
   status: 'PENDING' | 'ACTIVE' | 'PAUSED' | 'SUSPENDED';
   commissionPct: string;
   createdAt: string;
@@ -121,6 +122,75 @@ function NovaLojaForm({ onCreated }: { onCreated: () => void }) {
   );
 }
 
+function EditLojaForm({
+  store,
+  onClose,
+  onSaved,
+}: {
+  store: AdminStore;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    name: store.name,
+    category: store.category,
+    document: store.document,
+    description: store.description ?? '',
+  });
+  const [busy, setBusy] = useState(false);
+  const [erro, setErro] = useState('');
+
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  async function salvar(e: React.FormEvent) {
+    e.preventDefault();
+    setErro('');
+    setBusy(true);
+    try {
+      await api(`/admin/stores/${store.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: form.name,
+          category: form.category,
+          document: form.document.replace(/\D/g, ''),
+          description: form.description,
+        }),
+      });
+      onSaved();
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Erro ao salvar');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={salvar} className="mb-6 rounded-xl bg-white p-4 shadow-sm ring-2 ring-blue-300">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="font-bold">Editando: {store.name}</h2>
+        <button type="button" onClick={onClose} className="text-sm text-neutral-400 underline">
+          cancelar
+        </button>
+      </div>
+      <div className="mb-3 grid gap-2 sm:grid-cols-2">
+        <input required value={form.name} onChange={set('name')} placeholder="Nome da loja" className="rounded-lg border border-neutral-300 px-3 py-2 text-sm" />
+        <input required value={form.category} onChange={set('category')} placeholder="Categoria" className="rounded-lg border border-neutral-300 px-3 py-2 text-sm" />
+        <input required value={form.document} onChange={set('document')} placeholder="CNPJ ou CPF" className="rounded-lg border border-neutral-300 px-3 py-2 text-sm" />
+        <input value={form.description} onChange={set('description')} placeholder="Descrição (opcional)" className="rounded-lg border border-neutral-300 px-3 py-2 text-sm" />
+      </div>
+      <p className="mb-3 text-xs text-neutral-400">
+        Horários, zonas de entrega e cardápio são gerenciados pelo lojista no painel dele.
+        Comissão é editada clicando no % da tabela.
+      </p>
+      {erro && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
+      <button disabled={busy} className="rounded-lg bg-blue-600 px-5 py-2 font-bold text-white disabled:opacity-50">
+        {busy ? 'Salvando…' : 'Salvar alterações'}
+      </button>
+    </form>
+  );
+}
+
 const STATUS_STYLE: Record<AdminStore['status'], string> = {
   PENDING: 'bg-amber-100 text-amber-700',
   ACTIVE: 'bg-green-100 text-green-700',
@@ -132,6 +202,7 @@ export default function AdminLojasPage() {
   const [stores, setStores] = useState<AdminStore[]>([]);
   const [busy, setBusy] = useState(false);
   const [showNew, setShowNew] = useState(false);
+  const [editing, setEditing] = useState<AdminStore | null>(null);
 
   const load = useCallback(async () => {
     setStores(await api<AdminStore[]>('/admin/stores'));
@@ -191,6 +262,17 @@ export default function AdminLojasPage() {
         />
       )}
 
+      {editing && (
+        <EditLojaForm
+          store={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            void load();
+          }}
+        />
+      )}
+
       {pendentes.length > 0 && (
         <section className="mb-6 rounded-xl bg-amber-50 p-4 ring-1 ring-amber-300">
           <h2 className="mb-3 font-bold text-amber-800">
@@ -208,6 +290,15 @@ export default function AdminLojasPage() {
                 </div>
               </div>
               <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setEditing(store);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="rounded-lg bg-blue-100 px-3 py-1.5 text-xs font-bold text-blue-700"
+                >
+                  Editar
+                </button>
                 <button
                   disabled={busy}
                   onClick={() => run(() => api(`/admin/stores/${store.id}/approve`, { method: 'POST' }))}
@@ -264,6 +355,15 @@ export default function AdminLojasPage() {
                   </span>
                 </td>
                 <td className="pr-3 text-right">
+                  <button
+                    onClick={() => {
+                      setEditing(store);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="mr-3 text-xs text-blue-600 underline"
+                  >
+                    editar
+                  </button>
                   {store.status === 'ACTIVE' ? (
                     <button
                       disabled={busy}

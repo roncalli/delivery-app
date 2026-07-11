@@ -152,6 +152,19 @@ export class AdminService {
     return { store, owner: { id: owner.id, name: owner.name, email: owner.email } };
   }
 
+  /** Edição administrativa — inclui o documento, que o lojista não altera. */
+  async updateStore(
+    storeId: string,
+    dto: { name?: string; category?: string; document?: string; description?: string },
+  ) {
+    await this.assertStore(storeId);
+    return this.prisma.store.update({
+      where: { id: storeId },
+      data: dto,
+      include: { owner: { select: { id: true, name: true, phone: true, email: true } } },
+    });
+  }
+
   async updateCommission(storeId: string, commissionPct: number) {
     await this.assertStore(storeId);
     if (commissionPct < 0 || commissionPct > 50) {

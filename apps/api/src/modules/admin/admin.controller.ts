@@ -58,6 +58,27 @@ class AdminCreateStoreDto {
   ownerPassword?: string;
 }
 
+class AdminUpdateStoreDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(2, { message: 'Informe o nome da loja' })
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2, { message: 'Informe a categoria' })
+  category?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(11, { message: 'Documento inválido' })
+  document?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+}
+
 class UpdateCommissionDto {
   @IsNumber({}, { message: 'Comissão inválida' })
   @Min(0)
@@ -143,6 +164,11 @@ export class AdminController {
       where: { id },
       data: { status: StoreStatus.SUSPENDED },
     });
+  }
+
+  @Patch('stores/:id')
+  updateStore(@Param('id') id: string, @Body() dto: AdminUpdateStoreDto) {
+    return this.adminService.updateStore(id, dto);
   }
 
   @Patch('stores/:id/commission')
