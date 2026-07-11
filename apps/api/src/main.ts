@@ -1,11 +1,16 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import helmet from 'helmet';
 import { join } from 'path';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Headers de segurança; CORP liberado para as imagens de /uploads serem
+  // exibidas pelo frontend em outro domínio
+  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
   // Imagens enviadas em dev (ver UploadsService); em produção vira R2/S3
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });

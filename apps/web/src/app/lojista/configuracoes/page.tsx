@@ -69,7 +69,7 @@ function DadosForm({
 }: {
   store: Store;
   saving: boolean;
-  onSave: (d: Record<string, unknown>) => Promise<void>;
+  onSave: (d: Record<string, unknown>, ok?: string) => Promise<void>;
 }) {
   const [form, setForm] = useState({
     name: store.name,
@@ -132,7 +132,7 @@ function HorariosForm({
 }: {
   store: Store;
   saving: boolean;
-  onSave: (d: Record<string, unknown>) => Promise<void>;
+  onSave: (d: Record<string, unknown>, ok?: string) => Promise<void>;
 }) {
   const [rows, setRows] = useState(
     DAYS.map((_, day) => {

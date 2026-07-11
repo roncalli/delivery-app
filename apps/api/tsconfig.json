@@ -11,13 +11,15 @@
     "esModuleInterop": true,
     "sourceMap": true,
     "outDir": "./dist",
+    "rootDir": "./src",
     "baseUrl": "./",
-    "incremental": true,
+    // NÃO usar "incremental": o tsbuildinfo fica dessincronizado com o
+    // deleteOutDir do Nest e o build "passa" sem emitir nada em dist/
     "skipLibCheck": true,
     "strict": true,
     "strictPropertyInitialization": false,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src", "prisma"],
+  "include": ["src"],
   "exclude": ["node_modules", "dist"]
 }

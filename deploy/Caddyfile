@@ -1,0 +1,13 @@
+# Caddy: HTTPS automático (Let's Encrypt) e proxy reverso.
+# Os domínios vêm das envs WEB_DOMAIN e API_DOMAIN do docker-compose.
+
+{$WEB_DOMAIN} {
+	encode gzip
+	reverse_proxy web:3000
+}
+
+{$API_DOMAIN} {
+	encode gzip
+	# WebSocket (socket.io) passa automaticamente pelo reverse_proxy
+	reverse_proxy api:3001
+}

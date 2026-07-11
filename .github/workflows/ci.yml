@@ -1,0 +1,50 @@
+name: CI e Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    name: Build e verificação
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Gerar Prisma Client
+        run: npm run prisma:generate
+      - name: Build shared
+        run: npm run build -w @delivery/shared
+      - name: Build API (produção)
+        run: npm run build -w @delivery/api
+      - name: Build Web (produção)
+        run: npm run build -w @delivery/web
+        env:
+          NEXT_PUBLIC_API_URL: https://api.example.com/api
+          NEXT_PUBLIC_WS_URL: https://api.example.com
+      # - run: npm test  # habilitar quando os testes unitários existirem
+
+  deploy:
+    name: Deploy na VPS
+    needs: build
+    runs-on: ubuntu-latest
+    # Habilite criando a variável de repositório DEPLOY_ENABLED=true
+    # (Settings → Secrets and variables → Actions → Variables)
+    if: github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /opt/delivery-app
+            git pull origin main
+            docker compose -f docker-compose.prod.yml up -d --build
+            docker image prune -f
