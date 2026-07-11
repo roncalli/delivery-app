@@ -40,7 +40,13 @@ export class StoresService {
     return store;
   }
 
-  async create(user: JwtPayload, dto: CreateStoreDto) {
+  /** Autocadastro do lojista: a loja nasce PENDING até o admin aprovar. */
+  create(user: JwtPayload, dto: CreateStoreDto) {
+    return this.createForOwner(user.sub, dto, StoreStatus.PENDING);
+  }
+
+  /** Criação para um dono específico (usada também pelo admin, já ATIVA). */
+  async createForOwner(ownerId: string, dto: CreateStoreDto, status: StoreStatus) {
     const city = await this.prisma.city.findFirst({
       where: { id: dto.cityId, active: true },
     });
@@ -53,8 +59,8 @@ export class StoresService {
       data: {
         ...dto,
         slug,
-        ownerId: user.sub,
-        status: StoreStatus.PENDING, // nasce pendente até o admin aprovar
+        ownerId,
+        status,
         wallet: { create: { ownerType: 'STORE' } },
       },
       include: { deliveryZones: true },

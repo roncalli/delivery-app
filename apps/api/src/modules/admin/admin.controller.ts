@@ -9,16 +9,21 @@ import {
   Query,
 } from '@nestjs/common';
 import { OrderStatus, StoreStatus, UserRole } from '@prisma/client';
+import { Type } from 'class-transformer';
 import {
   IsBoolean,
+  IsEmail,
   IsNumber,
   IsOptional,
   IsString,
   Length,
+  Matches,
   Max,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
+import { CreateStoreDto } from '../stores/dto/stores.dto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -29,6 +34,28 @@ class SuspendStoreDto {
   @IsOptional()
   @IsString()
   reason?: string;
+}
+
+class AdminCreateStoreDto {
+  @ValidateNested()
+  @Type(() => CreateStoreDto)
+  store: CreateStoreDto;
+
+  @IsString()
+  @MinLength(2, { message: 'Informe o nome do dono' })
+  ownerName: string;
+
+  @Matches(/^\+[1-9]\d{9,14}$/, { message: 'Telefone do dono no formato +5534999990000' })
+  ownerPhone: string;
+
+  @IsEmail({}, { message: 'E-mail do dono inválido' })
+  ownerEmail: string;
+
+  /** Senha inicial — obrigatória apenas se o dono ainda não tem conta. */
+  @IsOptional()
+  @IsString()
+  @MinLength(6, { message: 'Senha com no mínimo 6 caracteres' })
+  ownerPassword?: string;
 }
 
 class UpdateCommissionDto {
@@ -92,6 +119,12 @@ export class AdminController {
       include: { owner: { select: { id: true, name: true, phone: true, email: true } } },
       orderBy: { createdAt: 'asc' },
     });
+  }
+
+  /** Onboarding pelo admin: cria dono (se necessário) + loja já ativa. */
+  @Post('stores')
+  createStore(@Body() dto: AdminCreateStoreDto) {
+    return this.adminService.createStore(dto);
   }
 
   @Post('stores/:id/approve')

@@ -10,8 +10,12 @@ import {
   Prisma,
   StoreStatus,
   TransactionType,
+  UserRole,
 } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../prisma/prisma.service';
+import { CreateStoreDto } from '../stores/dto/stores.dto';
+import { StoresService } from '../stores/stores.service';
 
 /** Pedido "visível": exclui Pix ainda não pago (o lojista nunca o viu). */
 const VISIBLE_ORDER: Prisma.OrderWhereInput = {
@@ -23,7 +27,10 @@ const VISIBLE_ORDER: Prisma.OrderWhereInput = {
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storesService: StoresService,
+  ) {}
 
   // ============================ DASHBOARD ============================
 
@@ -97,6 +104,53 @@ export class AdminService {
   }
 
   // ============================ LOJAS ============================
+
+  /**
+   * Onboarding pelo admin: cria (ou reaproveita) a conta do dono e a loja,
+   * que já nasce ATIVA — o admin é quem está cadastrando, não há o que aprovar.
+   */
+  async createStore(dto: {
+    store: CreateStoreDto;
+    ownerName: string;
+    ownerPhone: string;
+    ownerEmail: string;
+    ownerPassword?: string;
+  }) {
+    let owner = await this.prisma.user.findFirst({
+      where: { OR: [{ email: dto.ownerEmail }, { phone: dto.ownerPhone }] },
+    });
+
+    if (owner) {
+      if (owner.role !== UserRole.STORE_OWNER) {
+        throw new UnprocessableEntityException(
+          'Este telefone/e-mail já pertence a uma conta que não é de lojista',
+        );
+      }
+      // dono existente ganhando mais uma loja (multi-loja) — nada a fazer
+    } else {
+      if (!dto.ownerPassword || dto.ownerPassword.length < 6) {
+        throw new UnprocessableEntityException(
+          'Defina uma senha inicial (mín. 6 caracteres) para o novo lojista',
+        );
+      }
+      owner = await this.prisma.user.create({
+        data: {
+          role: UserRole.STORE_OWNER,
+          name: dto.ownerName,
+          phone: dto.ownerPhone,
+          email: dto.ownerEmail,
+          passwordHash: bcrypt.hashSync(dto.ownerPassword, 10),
+        },
+      });
+    }
+
+    const store = await this.storesService.createForOwner(
+      owner.id,
+      dto.store,
+      StoreStatus.ACTIVE,
+    );
+    return { store, owner: { id: owner.id, name: owner.name, email: owner.email } };
+  }
 
   async updateCommission(storeId: string, commissionPct: number) {
     await this.assertStore(storeId);

@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
+import { StoresModule } from '../stores/stores.module';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 
 // Operação da plataforma: dashboard, aprovação de lojas, monitor de pedidos,
 // financeiro (repasses) e cidades. Fase 2: banners, cupons da plataforma.
 @Module({
+  imports: [StoresModule],
   controllers: [AdminController],
   providers: [AdminService],
 })
