@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -29,6 +29,17 @@ export class StoresController {
   @Get(':id/finance')
   finance(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     return this.storesService.finance(id, user);
+  }
+
+  /** Relatório de entregues por período: ?from=2026-07-01&to=2026-07-10 */
+  @Get(':id/orders-report')
+  ordersReport(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Query('from') from: string,
+    @Query('to') to: string,
+  ) {
+    return this.storesService.ordersReport(id, user, from, to);
   }
 
   @Patch(':id')

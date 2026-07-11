@@ -140,6 +140,72 @@ export class StoresService {
     };
   }
 
+  /**
+   * Relatório de pedidos ENTREGUES por período (dia único ou intervalo).
+   * A comissão vem das transações registradas na liquidação de cada pedido —
+   * valor histórico real, mesmo que o % da loja tenha mudado depois.
+   */
+  async ordersReport(storeId: string, user: JwtPayload, from: string, to: string) {
+    await this.getOwnedStore(storeId, user);
+
+    const start = new Date(`${from}T00:00:00`);
+    const end = new Date(`${to}T23:59:59.999`);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      throw new UnprocessableEntityException('Datas inválidas (use AAAA-MM-DD)');
+    }
+    if (start > end) {
+      throw new UnprocessableEntityException('A data inicial é maior que a final');
+    }
+
+    const orders = await this.prisma.order.findMany({
+      where: {
+        storeId,
+        status: OrderStatus.DELIVERED,
+        deliveredAt: { gte: start, lte: end },
+      },
+      include: {
+        items: { select: { quantity: true, name: true } },
+        transactions: { where: { type: 'COMMISSION' }, select: { amount: true } },
+      },
+      orderBy: { deliveredAt: 'asc' },
+    });
+
+    const cents = (v: Prisma.Decimal | number) => Math.round(Number(v) * 100);
+    let subtotalCents = 0;
+    let feeCents = 0;
+    let commissionCents = 0;
+
+    const rows = orders.map((o) => {
+      const commission = o.transactions.reduce((s, t) => s - cents(t.amount), 0);
+      subtotalCents += cents(o.subtotal);
+      feeCents += cents(o.deliveryFee);
+      commissionCents += commission;
+      return {
+        id: o.id,
+        number: o.number,
+        deliveredAt: o.deliveredAt,
+        paymentMethod: o.paymentMethod,
+        itemsSummary: o.items.map((i) => `${i.quantity}× ${i.name}`).join(', '),
+        subtotal: Number(o.subtotal),
+        deliveryFee: Number(o.deliveryFee),
+        commission: commission / 100,
+      };
+    });
+
+    return {
+      from,
+      to,
+      orders: rows,
+      totals: {
+        count: rows.length,
+        sales: subtotalCents / 100, // produtos vendidos
+        deliveryFees: feeCents / 100, // taxas de entrega (entrega própria = do lojista)
+        commission: commissionCents / 100, // pago à plataforma
+        net: (subtotalCents + feeCents - commissionCents) / 100, // líquido do lojista
+      },
+    };
+  }
+
   // --- Zonas de entrega ---
 
   async createZone(storeId: string, user: JwtPayload, dto: CreateDeliveryZoneDto) {

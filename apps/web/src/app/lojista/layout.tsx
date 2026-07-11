@@ -10,8 +10,9 @@ import { StoreContext } from './store-context';
 const NAV = [
   { href: '/lojista/pedidos', label: 'Pedidos' },
   { href: '/lojista/cardapio', label: 'Cardápio' },
-  { href: '/lojista/configuracoes', label: 'Configurações' },
+  { href: '/lojista/relatorios', label: 'Relatórios' },
   { href: '/lojista/financeiro', label: 'Financeiro' },
+  { href: '/lojista/configuracoes', label: 'Configurações' },
 ];
 
 export default function LojistaLayout({ children }: { children: React.ReactNode }) {
