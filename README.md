@@ -4,7 +4,8 @@ Sistema web-first (PWA) semelhante ao iFood, com 4 frentes: cliente, lojista, en
 
 ## Documentação
 
-- **[docs/PASSO-A-PASSO.md](docs/PASSO-A-PASSO.md)** — guia completo de desenvolvimento, etapa por etapa (leia primeiro)
+- **[docs/COMO-RODAR.md](docs/COMO-RODAR.md)** — como subir e operar o ambiente no dia a dia (leia primeiro)
+- **[docs/PASSO-A-PASSO.md](docs/PASSO-A-PASSO.md)** — guia completo de desenvolvimento, etapa por etapa
 - **[CLAUDE.md](CLAUDE.md)** — convenções do projeto para desenvolvimento assistido por IA
 - `../estruturacao-sistema-delivery.md` — documento de planejamento (produto, arquitetura, modelo de negócio)
 
